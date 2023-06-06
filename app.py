@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_mysqldb import MySQL
-import datetime
+from datetime import datetime, timedelta
 import jwt
 from functools import wraps
 
@@ -18,6 +18,15 @@ mysql = MySQL(app)
 def create_tables():
     pass
 
+def payment_type(id):
+    if id == 1 or id == "1":
+        return 3201
+    elif id == 2 or id == "2":
+        return 3202
+    elif id == 3 or id == "3":
+        return 3203
+    elif id == 4 or id == "4":
+        return 3204
 
 # Endpoint 1 - GET All Payment Types
 @app.route('/getallpaymenttype', methods=['GET'])
@@ -56,7 +65,7 @@ def get_payment():
 
         cur = mysql.connection.cursor()
         query = "SELECT * FROM payment_detail WHERE payment_id = %s ;"
-        cur.execute(query, (payment_id,))
+        cur.execute(query, [payment_id])
         payment_detail_data = cur.fetchall()
         cur.close()
 
@@ -84,64 +93,101 @@ def get_payment():
 # Endpoint 3 - Create Payment
 @app.route('/createpayment', methods=['POST'])
 def create_payment():
+    def add_payment_trans(id):
+        payment_id = id
+        trans_id = request.json['pemesanan_id']
+        amount = request.json['amount']
+        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("INSERT INTO payment_detail (payment_id, trans_id, amount, time) VALUES ( %s, %s, %s, %s)", (payment_id, trans_id, amount, time))
+        mysql.connection.commit()
+        cur.close()
+        
     payment_type_id = request.json['payment_type_id']
+    
     title = request.json['title']
-    va = request.json['va']
-    status = request.json['status']
+    phone = request.json['phone']
+    va =  int(str(payment_type(payment_type_id)) + str(phone))
+    status = "W"
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    expire_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + request.json['expire_time']
-
+    expire = datetime.strptime(request.json['expire_time'], "%H:%M:%S").time()
+    expire_time = datetime.now() + timedelta(hours=expire.hour, minutes=expire.minute, seconds=expire.second)
+    
     cur = mysql.connection.cursor()
-    cur.execute("INSERT INTO payment (payment_type_id, title, va, status, time, update_time, expire_time) VALUES ( %s, %s, %s, %s, %s, %s, %s)", (payment_type_id, title, va, status, time, update_time, expire_time))
-    mysql.connection.commit()
-    cur.close()
+    query = "SELECT * FROM payment WHERE va = %s ;"
+    cur.execute(query, [va])
+    
+    va_checked = cur.fetchall()
+    if va_checked:
+        payment_id = va_checked[0][0]
+        add_payment_trans(payment_id)
+        return jsonify({"udah ada bang": "beres"})
+    else:
+        cur.execute("INSERT INTO payment (payment_type_id, title, va, status, time, update_time, expire_time) VALUES ( %s, %s, %s, %s, %s, %s, %s)", (payment_type_id, title, va, status, time, update_time, expire_time))
+        mysql.connection.commit()
+        payment_id = cur.lastrowid
+        add_payment_trans(payment_id)
+        return jsonify({"masuk bang": "beres"})
+    
 
-    return jsonify({})
-
-# Endpoint 4 - Add Payment Transaction
-@app.route('/addpaymenttrans', methods=['POST'])
-def add_payment_trans(id):
-    payment_id = request.json['payment_id']
-    trans_id = request.json['title']
-    amount = request.json['va']
-    status = request.json['status']
-    time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cur = mysql.connection.cursor()
-    cur.execute("INSERT INTO payment_detail (payment_id, trans_id, amount, time) VALUES ( %s, %s, %s, %s)", (payment_id, trans_id, amount, time))
-    mysql.connection.commit()
-    cur.close()
-
-    return jsonify({})
-
-# Endpoint 5 - Update Status
-@app.route('/updatestatus', methods=['PUT'])
+# Endpoint 4 - Update Status
+@app.route('/updatepaymentstatus', methods=['PUT'])
 def update_status():
-    pass
+    va = request.json['va']
+    status = request.json['status']
+    update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur = mysql.connection.cursor()
+    try:
+        cur.execute("UPDATE payment SET status=%s, update_time=%s WHERE va=%s", (status, update_time, va))
+        mysql.connection.commit()
+        return jsonify({"update bang": "beres"})
+    except:
+        pass
 
-# Endpoint 6 - Delete Payment Trans
+# Endpoint 5 - Delete Payment Trans
 @app.route('/deletepaymenttrans', methods=['DELETE'])
-def delete_payment_trans(id):
-    pass
+def delete_payment_trans():
+    payment_id = request.json['payment_id']
+    trans_id = request.json['pemesanan_id']
+    cur = mysql.connection.cursor()
+    
+    query = "SELECT * FROM payment_detail WHERE payment_id = %s ;"
+    cur.execute(query, [payment_id])
+    payment_id_checked = cur.fetchall()
+    payment_id_rows = len(payment_id_checked)
+    if payment_id_rows > 1:
+        cur.execute("DELETE FROM payment_detail WHERE trans_id=%s", ([trans_id]))
+        mysql.connection.commit()
+        cur.close()
+        return jsonify({"apus bang": "beres"})
+    else:
+        cur.execute("DELETE FROM payment_detail WHERE trans_id=%s", ([trans_id]))
+        print("anjaay")
+        mysql.connection.commit()
+        cur.execute("DELETE FROM payment WHERE payment_id=%s", ([payment_id]))
+        mysql.connection.commit()
+        cur.close()
+        return jsonify({"apus bang": "beres"})
+    
 
-# Endpoint 7 - Create Bank Payment
+# Endpoint 6 - Create Bank Payment
 @app.route('/createbankpayment', methods=['POST'])
-def create_bank_payment(id):
+def create_bank_payment():
     pass
 
 
-# Endpoint 8 - Update Bank Status
+# Endpoint 7 - Update Bank Status
 @app.route('/updatebankstatus', methods=['PUT'])
-def update_bank_status(id):
+def update_bank_status():
     pass
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({'status_code': '404 Not Found','message': 'Endpoint not found!', 'timestamp' : datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}), 404
+    return jsonify({'status_code': '404 Not Found','message': 'Endpoint not found!', 'timestamp' : datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    return jsonify({'status_code': '500 Internal Server Error','message': 'Internal server error!', 'timestamp' : datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}), 500
+    return jsonify({'status_code': '500 Internal Server Error','message': 'Internal server error!', 'timestamp' : datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

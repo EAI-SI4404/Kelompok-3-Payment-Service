@@ -61,9 +61,10 @@ def get_payment():
 
         for detail in payment_detail_data:
             payment_detail.append({
-                'trans_id': detail[0],
-                'amount': detail[1],
-                'time': detail[2]
+                'payment_detail_id': detail[0],
+                'trans_id': detail[2],
+                'amount': detail[3],
+                'time': detail[4]
             })
 
         payments.append({
@@ -126,13 +127,13 @@ def create_payment():
     if va_checked:
         payment_id = va_checked[0][0]
         add_payment_trans(payment_id)
-        return jsonify({"udah ada bang": "beres"})
+        return jsonify({'status_code': '201 Created', 'message': 'Transaction added successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 201
     else:
         cur.execute("INSERT INTO payment (payment_type_id, title, va, status, time, update_time, expire_time) VALUES ( %s, %s, %s, %s, %s, %s, %s)", (payment_type_id, title, va, status, time, update_time, expire_time))
         mysql.connection.commit()
         payment_id = cur.lastrowid
         add_payment_trans(payment_id)
-        return jsonify({"masuk bang": "beres"})
+        return jsonify({'status_code': '201 Created', 'message': 'Payment created successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 201
     
 
 # Endpoint 4 - Submit Payment
@@ -144,7 +145,7 @@ def submit_payment():
         'va': va,
         'status': status
     })
-    return jsonify({"submit bang": "beres"})
+    return jsonify({'status_code': '200 OK', 'message': 'Submit payment Success!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
 
 # Endpoint 5 - Update Status
 @app.route('/updatepaymentstatus', methods=['PUT'])
@@ -155,7 +156,7 @@ def update_status():
     cur = mysql.connection.cursor()
     cur.execute("UPDATE payment SET status=%s, update_time=%s WHERE va=%s", (status, update_time, va))
     mysql.connection.commit()
-    return jsonify({"update bang": "beres"})
+    return jsonify({'status_code': '200 OK', 'message': 'Update status payment success!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
 
 # Endpoint 6 - Delete Payment Trans
 @app.route('/deletepaymenttrans', methods=['DELETE'])
@@ -183,7 +184,7 @@ def delete_payment_trans():
         cur.execute("DELETE FROM payment_detail WHERE trans_id=%s", ([trans_id]))
         mysql.connection.commit()
         cur.close()
-        return jsonify({"apus bang": "beres"})
+        return jsonify({'status_code': '200 OK', 'message': 'Transaction deleted successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
     else:
         cur.execute("DELETE FROM payment_detail WHERE trans_id=%s", ([trans_id]))
         mysql.connection.commit()
@@ -193,7 +194,7 @@ def delete_payment_trans():
         'va': va
     })
         cur.close()
-        return jsonify({"apus bang": "beres"})
+        return jsonify({'status_code': '200 OK', 'message': 'Payment deleted successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
     
 @app.errorhandler(404)
 def not_found(error):

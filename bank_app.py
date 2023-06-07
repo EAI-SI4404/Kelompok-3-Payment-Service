@@ -39,12 +39,12 @@ def create_bank_payment():
         'update_time': update_time,
         'va': va
     })
-        return response.json()
+        return jsonify({'status_code': '201 Created', 'message': 'Transaction added successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 201
     else:
         cur.execute("INSERT INTO account ( va, amount, title,status, time, update_time) VALUES ( %s, %s, %s, %s, %s, %s)", (va, amount, title,status, time, update_time))
         mysql.connection.commit()
         cur.close()
-        return jsonify({"masuk bang": "beres"})
+        return jsonify({'status_code': '201 Created', 'message': 'Payment created successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 201
 
 
 # Endpoint 2 - Update Bank Payment
@@ -59,13 +59,13 @@ def update_bank_status():
         cur.execute("UPDATE account SET amount= amount + %s, update_time=%s WHERE va=%s", (addAmount, update_time, va))
         mysql.connection.commit()
         cur.close()
-        return jsonify({"update amount bang": "beres"})
-    if 'subAmount' in json_data:
+        return jsonify({'status_code': '200 OK', 'message': 'Amount addition successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
+    elif 'subAmount' in json_data:
         subAmount = json_data['subAmount']
         cur.execute("UPDATE account SET amount= amount - %s, update_time=%s WHERE va=%s", (subAmount, update_time, va))
         mysql.connection.commit()
         cur.close()
-        return jsonify({"update amount bang": "beres"})
+        return jsonify({'status_code': '200 OK', 'message': 'Amount substraction successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
     elif 'status' in json_data:
         status = json_data['status']
         cur.execute("UPDATE account SET status=%s, update_time=%s WHERE va=%s", (status, update_time, va))
@@ -75,7 +75,7 @@ def update_bank_status():
         'va': va,
         'status': status
     })
-        return jsonify({"update status bang": "beres"})
+        return jsonify({'status_code': '200 OK', 'message': 'Status updated successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
 
 # Endpoint 3 - Delete Bank Payment
 @app.route('/deletebankpayment', methods=['DELETE'])
@@ -85,7 +85,7 @@ def delete_bank_trans():
     cur.execute("DELETE FROM account WHERE va=%s", (va))
     mysql.connection.commit()
     cur.close()
-    return jsonify({"apus bang": "beres"})
+    return jsonify({'status_code': '200 OK', 'message': 'Bank Payment deleted successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
         
 
 @app.errorhandler(404)

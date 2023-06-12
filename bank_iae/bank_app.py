@@ -31,7 +31,7 @@ def create_bank_payment():
     
     va_checked = cur.fetchall()
     if va_checked:
-        response = requests.put('https://paymentapi-iae.azurewebsites.net/updatebankpayment', json={
+        response = requests.put('https://paymentapi-iae.azurewebsites.net//updatebankpayment', json={
             'addAmount': amount,
             'update_time': update_time,
             'va': va
@@ -70,7 +70,7 @@ def update_bank_status():
         upd_val = json_data['status']
         str_sql = "UPDATE account SET status=%s, update_time=%s WHERE va=%s AND status = 'W'"
         message = "Status updated successfully!"
-        response = requests.put('https://paymentapi-iae.azurewebsites.net/updatepaymentstatus', json={
+        response = requests.put('https://paymentapi-iae.azurewebsites.net//updatepaymentstatus', json={
             'va': va,
             'status': upd_val
         })
@@ -103,4 +103,4 @@ def internal_error(error):
     return jsonify({'status': False, 'status_code': 500,'message': 'Internal server error!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(debug=False)

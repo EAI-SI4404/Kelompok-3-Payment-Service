@@ -197,8 +197,6 @@ def confirm_payment():
         result = {'status': True, 'status_code': 200, 'message': 'Submit payment Success!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         if(payment != -1):
             if(status == 'S'):
-                print(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S'))
-                print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
                 if(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S') < datetime.now()):
                     status = 'E'
                     

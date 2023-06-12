@@ -22,14 +22,14 @@ def get_count(va):
     
     return data[0]
 
-def get_payment(va):
+def get_payment_by_va(va):
     cur = mysql.connection.cursor()
-    query = "SELECT * as count FROM payment WHERE va = %s AND status = 'W';"
+    query = "SELECT * FROM payment WHERE va = %s AND status = 'W';"
     cur.execute(query, [va])
     data = cur.fetchone()
     
     if(data):
-        return data[0]
+        return data
     else:
         return -1
 
@@ -118,10 +118,13 @@ def create_payment():
             time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             cur.execute("INSERT INTO payment_detail (payment_id, trans_id, amount, time) VALUES (%s, %s, %s, %s)", (id, trans_id, amount, time))
             mysql.connection.commit()
+    
+        cur.execute("SELECT a.admin_fee FROM payment_type a INNER JOIN payment b ON b.payment_type_id = a.payment_type_id WHERE b.payment_id = %s;", [id])
+        data = cur.fetchone()
         
         response = requests.post('https://bankapi-iae.azurewebsites.net/createbankpayment', json={
             'va': va,
-            'amount': total_amount,
+            'amount': total_amount + data[0],
             'title': title,
             'status': status
         })
@@ -133,13 +136,9 @@ def create_payment():
     phone = request.json['phone']
     payment_code = payment_type(payment_type_id)
     va =  int(str(payment_code) + str(phone))
-    cnt = get_count(va)
     
     if(payment_code == -1):
         return jsonify({'status': False, 'status_code': 409, 'message': 'Bank Tidak Tersedia!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 409
-    
-    if(cnt > 0):
-        return jsonify({'status': False, 'status_code': 409, 'message': 'Masih ada pembayaran, silahkan selesaikan terlebih dahulu!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 409
     
     title = request.json['title']
     exp_time = request.json['expire_time']
@@ -157,14 +156,14 @@ def create_payment():
     message = ""
 
     if va_checked:
-        payment = get_payment(va)
+        payment = get_payment_by_va(va)
         
-        if(datetime.strptime(payment[7], '%Y-%m-%d %H:%M:%S') > datetime.strptime(payment[5], '%Y-%m-%d %H:%M:%S')):
+        if(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S') > datetime.strptime(str(payment[5]), '%Y-%m-%d %H:%M:%S')):
             payment_id = va_checked[0][0]
             add_payment_trans(payment_id, title, status, trans_list)
             message = "Transaction added successfully!"
         else:
-            response = requests.put('https://paymentapi-iae.azurewebsites.net/confirmpayment', json={
+            response = requests.put('https://bankapi-iae.azurewebsites.net/updatebankpayment', json={
                 'va': va,
                 'status': 'E'
             })
@@ -186,11 +185,25 @@ def confirm_payment():
     status = request.json['status']
 
     if(status in ['W', 'S', 'C', 'E']):
-        response = requests.put('https://bankapi-iae.azurewebsites.net/updatebankpayment', json={
-            'va': va,
-            'status': status
-        })
-        return jsonify({'status': True, 'status_code': 200, 'message': 'Submit payment Success!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
+        payment = get_payment_by_va(va)
+        result = {'status': True, 'status_code': 200, 'message': 'Submit payment Success!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        if(payment != -1):
+            if(status == 'S'):
+                print(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S'))
+                print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                if(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S') < datetime.now()):
+                    status = 'E'
+                    
+                    result = {'status': False, 'status_code': 409, 'message': 'Pembayaran sudah expire!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+            response = requests.put('https://bankapi-iae.azurewebsites.net/updatebankpayment', json={
+                'va': va,
+                'status': status
+            })
+        else:
+            result = {'status': False, 'status_code': 409, 'message': 'Tidak ada pembayaran yang berlangsung!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+        return jsonify(result), result['status_code']
     else:
         return jsonify({'status': True, 'status_code': 409, 'message': 'Status code tidak terdaftar!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 409
 
@@ -212,36 +225,41 @@ def delete_payment_trans():
     trans_id = request.json['pemesanan_id']
     cur = mysql.connection.cursor()
     
-    query = "SELECT * FROM payment_detail WHERE payment_id = %s ;"
+    query = "SELECT * FROM payment_detail WHERE payment_id = %s;"
     cur.execute(query, [payment_id])
-    payment_id_checked = cur.fetchall()
-    
-    payment_id_rows = len(payment_id_checked)
-    if payment_id_rows > 1:
-        payment_id_checked = cur.fetchall()
+    payment_detail = cur.fetchall()
+        
+    if(payment_detail):
+        payment_id_rows = len(payment_detail)
         query = "SELECT * FROM payment WHERE payment_id = %s AND status = 'W';"
-        cur.execute(query, [payment_id_checked[0][1]])
-        va_checked = cur.fetchall()
-        va = va_checked[0]
-        amount = payment_id_checked[0][3]
-        response = requests.put('https://bankapi-iae.azurewebsites.net/updatebankpayment', json={
-        'va': va,
-        'subAmount': amount
-    })
-        cur.execute("DELETE FROM payment_detail WHERE trans_id=%s", ([trans_id]))
-        mysql.connection.commit()
-        cur.close()
-        return jsonify({'status': True, 'status_code': 200, 'message': 'Transaction deleted successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
+        cur.execute(query, [payment_detail[0][1]])
+        payment = cur.fetchone()
+
+        if(payment):
+            if payment_id_rows > 1:
+                amount = payment_detail[0][3]
+                response = requests.put('https://bankapi-iae.azurewebsites.net/updatebankpayment', json={
+                    'va': payment[3],
+                    'subAmount': amount
+                })
+                cur.execute("DELETE FROM payment_detail WHERE trans_id=%s AND payment_id =%s", ([trans_id, payment_detail[0][1]]))
+                mysql.connection.commit()
+                cur.close()
+                return jsonify({'status': True, 'status_code': 200, 'message': 'Transaction deleted successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
+            else:
+                cur.execute("DELETE FROM payment_detail WHERE trans_id=%s AND payment_id =%s", ([trans_id, payment_detail[0][1]]))
+                mysql.connection.commit()
+                cur.execute("DELETE FROM payment WHERE payment_id=%s AND status = 'W'", ([payment_id]))
+                mysql.connection.commit()
+                response = requests.delete('https://bankapi-iae.azurewebsites.net/deletebankpayment', json={
+                    'va': payment[3]
+                })
+                cur.close()
+                return jsonify({'status': True, 'status_code': 200, 'message': 'Payment and transaction deleted!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
+        else:
+            return jsonify({'status': True, 'status_code': 409, 'message': 'Transaksi gagal dihapus karena tidak ada pembayaran yang sedang berlangsung!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 409
     else:
-        cur.execute("DELETE FROM payment_detail WHERE trans_id=%s", ([trans_id]))
-        mysql.connection.commit()
-        cur.execute("DELETE FROM payment WHERE payment_id=%s AND status = 'W'", ([payment_id]))
-        mysql.connection.commit()
-        response = requests.delete('https://bankapi-iae.azurewebsites.net/deletebankpayment', json={
-        'va': va
-    })
-        cur.close()
-        return jsonify({'status': True, 'status_code': 200, 'message': 'Payment deleted successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200
+        return jsonify({'status': True, 'status_code': 409, 'message': 'Tidak ada transaksi yang berlangsung!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 409
 
 @app.errorhandler(400)
 def bad_request(error):
@@ -256,4 +274,4 @@ def internal_error(error):
     return jsonify({'status': False, 'status_code': 500,'message': 'Internal server error!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)

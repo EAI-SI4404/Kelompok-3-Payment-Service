@@ -30,15 +30,7 @@ def create_bank_payment():
     cur.execute(query, [va])
     
     va_checked = cur.fetchall()
-    if va_checked:
-        response = requests.put('https://paymentapi-iae.azurewebsites.net//updatebankpayment', json={
-            'addAmount': amount,
-            'update_time': update_time,
-            'va': va
-        })
-
-        message = "Transaction added successfully!"
-    else:
+    if not va_checked:
         cur.execute("INSERT INTO account ( va, amount, title,status, time, update_time) VALUES ( %s, %s, %s, %s, %s, %s)", (va, amount, title,status, time, update_time))
         mysql.connection.commit()
         cur.close()

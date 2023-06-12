@@ -160,6 +160,14 @@ def create_payment():
         
         if(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S') > datetime.strptime(str(payment[5]), '%Y-%m-%d %H:%M:%S')):
             payment_id = va_checked[0][0]
+            for trans_id in trans_list:
+                amount = 150000000 #Disini hit endpoint pemesanan untuk get harga
+                total_amount += amount
+                
+            response = requests.put('https://bankapi-iae.azurewebsites.net/updatebankpayment', json={
+                'va': va_checked[0][3],
+                'addAmount': total_amount
+            })
             add_payment_trans(payment_id, title, status, trans_list)
             message = "Transaction added successfully!"
         else:

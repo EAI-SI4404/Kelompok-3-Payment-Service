@@ -158,7 +158,7 @@ def create_payment():
     if va_checked:
         payment = get_payment_by_va(va)
         
-        if(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S') > datetime.strptime(str(payment[5]), '%Y-%m-%d %H:%M:%S')):
+        if(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S') > datetime.now()):
             payment_id = va_checked[0][0]
             for trans_id in trans_list:
                 amount = 150000000 #Disini hit endpoint pemesanan untuk get harga

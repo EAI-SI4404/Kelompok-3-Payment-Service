@@ -1,0 +1,4 @@
+flask==2.2.3
+requests
+flask-mysqldb
+gunicorn

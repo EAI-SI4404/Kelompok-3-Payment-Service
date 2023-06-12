@@ -85,7 +85,7 @@ def update_bank_status():
 def delete_bank_trans():
     va = request.json['va']
     cur = mysql.connection.cursor()
-    cur.execute("DELETE FROM account WHERE va=%s AND status = 'W'", (va))
+    cur.execute("DELETE FROM account WHERE va=%s AND status = 'W'", ([va]))
     mysql.connection.commit()
     cur.close()
     return jsonify({'status': True, 'status_code': 200, 'message': 'Bank Payment deleted successfully!', 'timestamp' : datetime.now().strftime('%Y-%m-%d %H:%M:%S')}), 200

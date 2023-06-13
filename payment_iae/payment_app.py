@@ -160,6 +160,7 @@ def create_payment():
         
         if(datetime.strptime(str(payment[7]), '%Y-%m-%d %H:%M:%S') > datetime.now()):
             payment_id = va_checked[0][0]
+            total_amount = 0
             for trans_id in trans_list:
                 amount = 150000000 #Disini hit endpoint pemesanan untuk get harga
                 total_amount += amount
